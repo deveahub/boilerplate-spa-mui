@@ -1,0 +1,122 @@
+name: Pull Request
+
+on:
+  pull_request:
+    branches:
+      - main
+      - preprodution
+      - develop
+    types: [opened, synchronize]
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        id: cache
+        with:
+          path: |
+            node_modules
+            **/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+      - uses: actions/setup-node@v2
+        with:
+          node-version: "14"
+          registry-url: "https://registry.npmjs.org"
+      - name: Create npmrc
+        run: |
+          if [ ! -z "$RRIOS_DEV_READ_TOKEN" ]
+          then
+            echo "//npm.pkg.github.com/:_authToken=$RRIOS_DEV_READ_TOKEN" >.npmrc
+            echo "@rrios-dev:registry=https://npm.pkg.github.com/" >>.npmrc
+            echo .npmrc created
+            echo ${#RRIOS_DEV_READ_TOKEN} RRIOS_DEV_READ_TOKEN length
+            echo $RRIOS_DEV_READ_TOKEN | md5sum
+            cat .npmrc
+            ls -la
+          else
+            echo .npmrc NOT created
+          fi
+        env:
+          RRIOS_DEV_READ_TOKEN: ${{ secrets.RRIOS_DEV_READ_TOKEN }}
+      - name: Install Dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_READ }}
+          GA_TOKEN: ${{ secrets.GA_TOKEN }}
+
+  lint:
+    needs: [install]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        id: cache
+        with:
+          path: |
+            node_modules
+            **/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+      - run: npm run lint
+
+  tests:
+    needs: [install]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        script: [
+            "ci:chrome:headless",
+            "test:ci",
+          ]
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/cache@v2
+        id: cache
+        with:
+          path: |
+            node_modules
+            **/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - uses: FedericoCarboni/setup-ffmpeg@v1-beta
+        if: ${{ matrix.script == 'ci:chrome:headless' }}
+        name: Setup ffmpeg
+
+      - run: npm run ${{ matrix.script}}
+        env:
+          REACT_APP_HOST_ENV: local
+          REACT_APP_BOB_API: https://dev.be.bob.io
+
+      - uses: actions/upload-artifact@v2
+        if: ${{ failure() && matrix.script == 'ci:chrome:headless' }}
+        with:
+          name: screenshots-e2e
+          path: "screenshots/**"
+
+      - uses: actions/upload-artifact@v2
+        if: ${{ failure() && matrix.script == 'ci:chrome:headless' }}
+        with:
+          name: videos-e2e
+          path: "videos/**"
+
+      - name: Coverage
+        uses: actions/cache@v2
+        if: ${{ success() && matrix.script == 'test:ci' }}
+        with:
+          path: coverage/lcov.info
+          key: ${{ runner.os }}-booking-v3-mvp-lcov-${{ github.run_id }}-${{ github.run_attempt }}
+  slack:
+    needs: [tests, lint]
+    name: Notify in slack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack Workflow Notification
+        uses: come25136/workflow-notification-for-slack@main
+        with:
+          repo_token: ${{secrets.RRIOS_DEV_GITHUB_REPOSITORY }}
+          slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          name: example
+          icon_emoji: ':recycle:'

@@ -1,0 +1,11 @@
+{
+    "quarantineMode": false,
+    "skipJsErrors": true,
+    "stopOnFirstFail": true,
+    "selectorTimeout": 60000,
+    "screenshots": {
+        "fullPage": true,
+        "takeOnFails": true,
+        "pathPattern": "test-${TEST_INDEX}-${DATE}_${TIME}/${FILE_INDEX}.png"
+    }
+}
