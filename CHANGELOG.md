@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# 1.0.0 (2021-12-28)
+
+
+### Features
+
+* initial structure ([06b29e5](https://github.com/rrios-dev/boilerplate-spa-mui/commit/06b29e58fc5b0f1394438708d9a0781f4e2e1605))
+
 # [1.2.0](https://github.com/rrios-dev/boilerplate-spa-mui/compare/v1.1.0...v1.2.0) (2021-12-27)
 
 
